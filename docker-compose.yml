@@ -1,0 +1,137 @@
+services:
+  # ─────────────────────────────────────────────────────────────────────────
+  # PostgreSQL + pgvector
+  # ─────────────────────────────────────────────────────────────────────────
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-lenny}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lenny_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-lenny_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lenny} -d ${POSTGRES_DB:-lenny_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Ollama — local LLM runtime
+  # ─────────────────────────────────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    # GPU support (uncomment if NVIDIA GPU available):
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Ollama model puller — pulls required models on first start
+  # ─────────────────────────────────────────────────────────────────────────
+  ollama-init:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: >
+      sh -c "
+        ollama pull ${OLLAMA_MODEL:-llama3.2} &&
+        ollama pull ${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text} &&
+        echo 'Models ready.'
+      "
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: "no"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Backend — FastAPI
+  # ─────────────────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-lenny}:${POSTGRES_PASSWORD:-lenny_secret}@db:5432/${POSTGRES_DB:-lenny_db}
+      OLLAMA_BASE_URL: http://ollama:11434
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    volumes:
+      - ./data:/app/data:ro
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Ingestion — runs once to populate the knowledge base
+  # Run manually: docker compose run --rm ingest
+  # ─────────────────────────────────────────────────────────────────────────
+  ingest:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-lenny}:${POSTGRES_PASSWORD:-lenny_secret}@db:5432/${POSTGRES_DB:-lenny_db}
+      OLLAMA_BASE_URL: http://ollama:11434
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["python", "scripts/ingest_transcripts.py", "--corpus-dir", "/app/data/transcripts", "--skip-download"]
+    volumes:
+      - ./data:/app/data
+    profiles:
+      - ingest
+    restart: "no"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Frontend — React + Vite
+  # ─────────────────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      VITE_API_URL: http://localhost:${BACKEND_PORT:-8000}
+
+volumes:
+  postgres_data:
+  ollama_data:
