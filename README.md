@@ -74,3 +74,10 @@ If you wish to run the app outside of Docker:
 1. Start Postgres: `docker compose up db -d`
 2. Backend: `cd backend && pip install -r requirements.txt && uvicorn app.main:app --reload`
 3. Frontend: `cd frontend && npm install && npm run dev`
+
+## image 
+<img width="2932" height="1666" alt="WhatsApp Image 2026-09-16 at 00 57 23" src="https://github.com/user-attachments/assets/f22c3155-35a6-4e85-9de3-becc47e27c20" />
+<img width="2940" height="1664" alt="WhatsApp Image 2026-09-16 at 00 57 45" src="https://github.com/user-attachments/assets/b0b04b43-fd33-437e-9bd6-31371a5c40e5" />
+<img width="2936" height="1664" alt="WhatsApp Image 2026-09-16 at 00 57 09" src="https://github.com/user-attachments/assets/121ee992-75a9-46e6-b3e6-9e772e19ff17" />
+
+
