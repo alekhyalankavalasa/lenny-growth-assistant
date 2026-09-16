@@ -1,0 +1,40 @@
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+pydantic==2.10.3
+pydantic-settings==2.6.1
+
+# Database
+asyncpg==0.30.0
+sqlalchemy[asyncio]==2.0.36
+alembic==1.14.0
+pgvector==0.3.6
+
+# LLM Providers
+anthropic==0.40.0
+openai==1.57.2
+
+# RAG & Embeddings
+tiktoken==0.8.0
+httpx==0.28.1
+sentence-transformers==3.1.1
+
+# Content processing
+bleach==6.2.0
+tinycss2==1.4.0
+
+# Logging
+structlog==24.4.0
+
+# Testing
+pytest==8.3.4
+pytest-asyncio==0.24.0
+httpx==0.28.1
+pytest-cov==6.0.0
+
+# Utilities
+python-multipart==0.0.18
+python-dotenv==1.0.1
+tenacity==9.0.0
+rich==13.9.4
+requests==2.32.3
+tqdm==4.67.1
